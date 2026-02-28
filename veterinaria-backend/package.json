@@ -1,0 +1,30 @@
+{
+  "name": "veterinaria-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "seed": "node seed.js",
+    "setup": "npm install && node seed.js && node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
+    "expo": "^55.0.4",
+    "expo-module-scripts": "^55.0.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.16.3",
+    "pg": "^8.18.0",
+    "promise": "^8.3.0",
+    "sqlite3": "^5.1.7"
+  }
+}
