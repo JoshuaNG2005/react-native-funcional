@@ -32,7 +32,10 @@ router.get('/test-db', async (req, res) => {
 
 // Crear una nueva cita en la base de datos
 router.post('/', authenticateToken, async (req, res) => {
-  const { mascotaId, fecha, hora, motivo } = req.body;
+  const mascotaId = req.body.mascotaId || req.body.mascota_id;
+  const fecha = req.body.fecha;
+  const hora = req.body.hora;
+  const motivo = req.body.motivo || req.body.tipo_servicio;
 
   // Validar campos requeridos
   if (!mascotaId || !fecha || !hora || !motivo) {

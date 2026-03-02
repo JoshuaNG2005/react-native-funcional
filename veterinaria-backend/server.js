@@ -89,6 +89,20 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'API Veterinaria Backend activa',
+    endpoints: {
+      health: '/api/v1/health',
+      auth: '/api/v1/auth',
+      mascotas: '/api/v1/mascotas',
+      citas: '/api/v1/citas',
+    },
+    frontend: 'https://dist-tau-swart.vercel.app',
+  });
+});
+
 // Rutas
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/mascotas', mascotasRoutes);

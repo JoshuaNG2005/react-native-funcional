@@ -137,10 +137,13 @@ export default function CitasScreen() {
   const fetchCitas = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/api/v1/citas`, {
+      const response = await fetch(`${apiUrl}/api/v1/citas?t=${Date.now()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
         },
+        cache: 'no-store',
       });
       const data = await response.json();
       
@@ -226,14 +229,15 @@ export default function CitasScreen() {
     }
     // 1. AJUSTE DE PAYLOAD: Usamos los nombres exactos de tu base de datos
     const citaPayload = {
-      mascota_id: mascotaIdNum,       // Antes era mascotaId
-      id_Medicos: 1,                  // Agregamos el ID del médico (por defecto 1)
-      fecha: fecha,
-      hora: hora,
-      tipo_servicio: motivo,          // Cambiamos 'motivo' por 'tipo_servicio'
-      motivo: notas || 'Sin notas',   // Usamos las notas como motivo detallado
-      estado: 'pendiente',
-      costo: 0                        // Valor por defecto
+      mascotaId: mascotaIdNum,
+      mascota_id: mascotaIdNum,
+      fecha,
+      hora,
+      motivo,
+      tipo_servicio: motivo,
+      descripcion: notas || null,
+      notas: notas || null,
+      id_Medicos: 1,
     };
     console.log('📤 Enviando a API:', citaPayload);
     try {
@@ -247,14 +251,14 @@ export default function CitasScreen() {
       });
       const data = await response.json();
       if (response.ok) {
+        await fetchCitas();
         Alert.alert('Éxito', '¡Tu cita ha sido agendada!');
         setCreateModalVisible(false);
-        // Limpiar campos
+        setSelectedMascotaId(null);
         setFecha('');
         setHora('');
         setMotivo('');
         setNotas('');
-        fetchCitas(); // Recargar lista
       } else {
         Alert.alert('Error', data.error || 'No se pudo crear la cita');
       }
