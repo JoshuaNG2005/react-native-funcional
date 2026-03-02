@@ -112,9 +112,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const citasUsuario = await allQuery(
       `SELECT 
-        c.id, c.mascota_id, c.usuario_id, c.fecha, c.hora, 
-        c.tipo_servicio, c.estado, c.descripcion, c.costo, 
-        c.notas_admin, c.fecha_creacion,
+        c.*, 
         m.nombre as mascota_nombre, m.tipo as mascota_tipo 
        FROM citas c 
        JOIN mascotas m ON c.mascota_id = m.id 
@@ -143,9 +141,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const result = await runQuery(
       `SELECT 
-        c.id, c.mascota_id, c.usuario_id, c.fecha, c.hora,
-        c.tipo_servicio, c.estado, c.descripcion, c.costo,
-        c.notas_admin, c.fecha_creacion,
+        c.*, 
         m.nombre as mascota_nombre, m.tipo as mascota_tipo 
        FROM citas c 
        JOIN mascotas m ON c.mascota_id = m.id 
@@ -223,9 +219,7 @@ router.get('/admin/all', authenticateToken, isAdmin, async (req, res) => {
     
     const todasCitas = await allQuery(
       `SELECT 
-        c.id, c.mascota_id, c.usuario_id, c.fecha, c.hora,
-        c.tipo_servicio, c.estado, c.descripcion, c.costo,
-        c.notas_admin, c.fecha_creacion,
+        c.*, 
         m.nombre as mascota_nombre,
         m.tipo as mascota_tipo,
         m.raza as mascota_raza,

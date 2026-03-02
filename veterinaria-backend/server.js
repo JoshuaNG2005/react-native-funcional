@@ -23,6 +23,7 @@ const tratamientosRoutes = require('./routes/tratamientos');
 const historialRoutes = require('./routes/historial');
 
 const app = express();
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
 
 // 🔧 CORS - Configuración prioritaria ANTES de cualquier otro middleware
 // Permitir explícitamente https://dist-tau-swart.vercel.app
@@ -144,11 +145,18 @@ if (missingEnvVars.length > 0) {
   console.error('1. Ve a: https://vercel.com/joshuas-projects-dd278c4a/veterinaria-backend/settings/environment-variables');
   console.error('2. Añade las variables faltantes con sus valores');
   console.error('3. Haz Redeploy del proyecto\n');
-  throw new Error('Missing required environment variables: ' + missingEnvVars.join(', '));
+  if (!isVercel) {
+    throw new Error('Missing required environment variables: ' + missingEnvVars.join(', '));
+  }
 }
 
 // Inicialización asíncrona
 (async () => {
+  if (isVercel) {
+    console.log('ℹ️ [SERVER] Modo serverless (Vercel): no se usa app.listen');
+    return;
+  }
+
   try {
     console.log('🔄 [SERVER] Iniciando servidor...');
     console.log('🔄 [SERVER] NODE_ENV:', process.env.NODE_ENV || 'development');
@@ -210,7 +218,9 @@ if (missingEnvVars.length > 0) {
       console.error('   - Verifica DB_USER y DB_PASSWORD');
     }
     
-    process.exit(1);
+    if (!isVercel) {
+      process.exit(1);
+    }
   }
 })();
 

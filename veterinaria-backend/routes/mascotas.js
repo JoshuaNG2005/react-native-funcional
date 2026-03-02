@@ -24,7 +24,7 @@ router.get('/admin/all', authenticateAdmin, async (req, res) => {
 // OBTENER TODAS LAS MASCOTAS DEL USUARIO
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const mascotas = await allQuery('SELECT * FROM mascotas WHERE usuario_id = $1 ORDER BY fecha_creacion DESC', [
+    const mascotas = await allQuery('SELECT * FROM mascotas WHERE usuario_id = ? ORDER BY id DESC', [
       req.user.id,
     ]);
 
@@ -51,16 +51,16 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 
     const result = await runQuery(
-      'INSERT INTO mascotas (nombre, tipo, raza, edad, peso, color, usuario_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      'INSERT INTO mascotas (nombre, tipo, raza, edad, peso, color, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [nombre, tipo, raza || null, edad || null, peso || null, color || null, req.user.id]
     );
 
-    console.log('Mascota creada exitosamente, ID:', result.id);
+    console.log('Mascota creada exitosamente, ID:', result.insertId);
 
     res.status(201).json({
       success: true,
       message: 'Mascota creada exitosamente',
-      data: { id: result.id, nombre, tipo, raza, edad, peso, color, usuario_id: req.user.id },
+      data: { id: result.insertId, nombre, tipo, raza, edad, peso, color, usuario_id: req.user.id },
     });
   } catch (error) {
     console.error('Error al crear mascota:', error);
@@ -75,7 +75,7 @@ router.post('/', authenticateToken, async (req, res) => {
 // OBTENER MASCOTA POR ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = $1 AND usuario_id = $2', [req.params.id, req.user.id]);
+    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = ? AND usuario_id = ?', [req.params.id, req.user.id]);
 
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
@@ -95,15 +95,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const mascotaId = req.params.id;
 
     // Verificar que la mascota pertenece al usuario
-    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = $1 AND usuario_id = $2', [mascotaId, req.user.id]);
+    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = ? AND usuario_id = ?', [mascotaId, req.user.id]);
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
     }
 
     const updateQuery = `
       UPDATE mascotas 
-      SET nombre = $1, tipo = $2, raza = $3, edad = $4, peso = $5, color = $6
-      WHERE id = $7 AND usuario_id = $8
+      SET nombre = ?, tipo = ?, raza = ?, edad = ?, peso = ?, color = ?
+      WHERE id = ? AND usuario_id = ?
     `;
 
     await runQuery(updateQuery, [
@@ -134,12 +134,12 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const mascotaId = req.params.id;
 
     // Verificar que la mascota pertenece al usuario
-    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = $1 AND usuario_id = $2', [mascotaId, req.user.id]);
+    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = ? AND usuario_id = ?', [mascotaId, req.user.id]);
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
     }
 
-    await runQuery('DELETE FROM mascotas WHERE id = $1 AND usuario_id = $2', [mascotaId, req.user.id]);
+    await runQuery('DELETE FROM mascotas WHERE id = ? AND usuario_id = ?', [mascotaId, req.user.id]);
 
     res.json({ success: true, message: 'Mascota eliminada' });
   } catch (error) {
@@ -154,7 +154,7 @@ router.get('/:id/historial', authenticateToken, async (req, res) => {
     const mascotaId = req.params.id;
 
     // Verificar que la mascota pertenece al usuario
-    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = $1 AND usuario_id = $2', [mascotaId, req.user.id]);
+    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = ? AND usuario_id = ?', [mascotaId, req.user.id]);
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
     }
@@ -163,13 +163,13 @@ router.get('/:id/historial', authenticateToken, async (req, res) => {
     const historial = await allQuery(`
       SELECT 
         id, 
-        TO_CHAR(fecha_hora, 'DD/MM/YYYY HH24:MI') as fecha,
+        DATE_FORMAT(CONCAT(fecha, ' ', hora), '%d/%m/%Y %H:%i') as fecha,
         'Consulta' as tipo,
-        COALESCE(motivo, 'Sin descripción') as descripcion,
+        COALESCE(tipo_servicio, 'Sin descripción') as descripcion,
         estado
       FROM citas 
-      WHERE mascota_id = $1 AND estado = 'completada'
-      ORDER BY fecha_hora DESC
+      WHERE mascota_id = ? AND estado = 'completada'
+      ORDER BY fecha DESC, hora DESC
     `, [mascotaId]);
 
     res.json({ success: true, data: historial });
@@ -185,7 +185,7 @@ router.get('/:id/tratamientos', authenticateToken, async (req, res) => {
     const mascotaId = req.params.id;
 
     // Verificar que la mascota pertenece al usuario
-    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = $1 AND usuario_id = $2', [mascotaId, req.user.id]);
+    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = ? AND usuario_id = ?', [mascotaId, req.user.id]);
     if (!mascota) {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
     }
@@ -194,15 +194,15 @@ router.get('/:id/tratamientos', authenticateToken, async (req, res) => {
     const tratamientos = await allQuery(`
       SELECT 
         id,
-        TO_CHAR(fecha_hora, 'DD/MM/YYYY') as fecha_inicio,
+        DATE_FORMAT(fecha, '%d/%m/%Y') as fecha_inicio,
         NULL as fecha_fin,
         'Tratamiento' as tipo,
-        COALESCE(motivo, 'Tratamiento general') as descripcion,
-        COALESCE(notas, 'Sin especificar') as medicamento,
+        COALESCE(tipo_servicio, 'Tratamiento general') as descripcion,
+        COALESCE(descripcion, 'Sin especificar') as medicamento,
         'Según prescripción' as dosis
       FROM citas 
-      WHERE mascota_id = $1 AND estado IN ('programada', 'en_proceso')
-      ORDER BY fecha_hora DESC
+      WHERE mascota_id = ? AND estado IN ('programada', 'en_proceso', 'pendiente')
+      ORDER BY fecha DESC, hora DESC
     `, [mascotaId]);
 
     res.json({ success: true, data: tratamientos });
