@@ -44,12 +44,32 @@ router.post('/create-admin-direct', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     console.log('POST /register body:', req.body);
-    const { nombre, email, password, telefono, direccion } = req.body;
+    const { nombre, email, password, telefono, direccion, rol } = req.body;
+    const userRole = rol || 'cliente'; // Por defecto es cliente
+    
+    // Obtener el usuario autenticado si existe
+    const token = req.headers.authorization?.split(' ')[1];
+    let userAuth = null;
+    if (token) {
+      try {
+        userAuth = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-this');
+      } catch (e) {
+        console.log('Token inválido, registro sin autenticación');
+      }
+    }
 
     if (!nombre || !email || !password) {
       return res.status(400).json({
         success: false,
         message: 'Nombre, email y password son requeridos',
+      });
+    }
+
+    // Si intenta crear un admin, debe estar autenticado como admin
+    if (userRole === 'admin' && (!userAuth || userAuth.rol !== 'admin')) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo administradores pueden crear otros administradores',
       });
     }
 
@@ -65,13 +85,13 @@ router.post('/register', async (req, res) => {
     // Insertar usuario
     const result = await runQuery(
       'INSERT INTO usuarios (nombre, email, password, telefono, direccion, rol) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre, email, hashedPassword, telefono || null, direccion || null, 'cliente']
+      [nombre, email, hashedPassword, telefono || null, direccion || null, userRole]
     );
 
     res.status(201).json({
       success: true,
       message: 'Usuario registrado exitosamente',
-      data: { id: result.insertId, nombre, email },
+      data: { id: result.insertId, nombre, email, rol: userRole },
     });
   } catch (error) {
     console.error('Error en registro:', error);

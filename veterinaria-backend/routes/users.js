@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { allQuery, getQuery, runQuery } = require('../config/database');
 const { authenticateToken, authenticateAdmin } = require('../middleware/auth');
 
@@ -29,7 +30,16 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     }
 
     // Verificar que el usuario existe
-    const usuario = await getQuery('SELECT * FROM usuarios WHERE id = $1', [id]);
+    let usuario;
+    try {
+      usuario = await getQuery('SELECT * FROM usuarios WHERE id = ?', [id]);
+    } catch (err) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado',
+      });
+    }
+
     if (!usuario) {
       return res.status(404).json({
         success: false,
@@ -39,7 +49,7 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
 
     // Actualizar usuario
     await runQuery(
-      'UPDATE usuarios SET nombre = $1, email = $2, telefono = $3, direccion = $4, rol = $5 WHERE id = $6',
+      'UPDATE usuarios SET nombre = ?, email = ?, telefono = ?, direccion = ?, rol = ? WHERE id = ?',
       [nombre, email, telefono, direccion, rol || 'cliente', id]
     );
 
@@ -57,13 +67,99 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
+// CAMBIAR CONTRASEÑA (Usuario autenticado)
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.user.id;
+
+    // Validación
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Todos los campos son obligatorios',
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Las contraseñas no coinciden',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 6 caracteres',
+      });
+    }
+
+    // Obtener usuario actual
+    let usuario;
+    try {
+      usuario = await getQuery('SELECT * FROM usuarios WHERE id = ?', [userId]);
+    } catch (err) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado',
+      });
+    }
+
+    // Verificar contraseña actual
+    const isPasswordValid = await bcrypt.compare(currentPassword, usuario.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Contraseña actual incorrecta',
+      });
+    }
+
+    // Hash de la nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar contraseña
+    await runQuery(
+      'UPDATE usuarios SET password = ? WHERE id = ?',
+      [hashedPassword, userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Contraseña actualizada correctamente',
+    });
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cambiar contraseña',
+    });
+  }
+});
+
 // ELIMINAR USUARIO (Solo Admin)
 router.delete('/:id', authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
     // Verificar que el usuario existe
-    const usuario = await getQuery('SELECT * FROM usuarios WHERE id = $1', [id]);
+    let usuario;
+    try {
+      usuario = await getQuery('SELECT * FROM usuarios WHERE id = ?', [id]);
+    } catch (err) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado',
+      });
+    }
+
     if (!usuario) {
       return res.status(404).json({
         success: false,
@@ -80,7 +176,7 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     }
 
     // Eliminar usuario (las mascotas y citas se eliminan en cascada)
-    await runQuery('DELETE FROM usuarios WHERE id = $1', [id]);
+    await runQuery('DELETE FROM usuarios WHERE id = ?', [id]);
 
     res.json({
       success: true,

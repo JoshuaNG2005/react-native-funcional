@@ -25,12 +25,21 @@ export default function UsuariosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
     telefono: '',
     direccion: '',
+    rol: 'cliente' as 'cliente' | 'admin',
+  });
+  const [createFormData, setCreateFormData] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    direccion: '',
+    password: '',
     rol: 'cliente' as 'cliente' | 'admin',
   });
 
@@ -173,6 +182,55 @@ export default function UsuariosScreen() {
     );
   };
 
+  const handleCreateUser = async () => {
+    if (!createFormData.nombre || !createFormData.email || !createFormData.password) {
+      Alert.alert('Error', 'Nombre, email y contraseña son obligatorios');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${getApiUrl()}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nombre: createFormData.nombre,
+          email: createFormData.email,
+          password: createFormData.password,
+          telefono: createFormData.telefono || '',
+          direccion: createFormData.direccion || '',
+          rol: createFormData.rol,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert('Éxito', 'Usuario creado correctamente');
+        setCreateModalVisible(false);
+        setCreateFormData({
+          nombre: '',
+          email: '',
+          telefono: '',
+          direccion: '',
+          password: '',
+          rol: 'cliente',
+        });
+        fetchUsuarios();
+      } else {
+        Alert.alert('Error', data.message || 'No se pudo crear el usuario');
+      }
+    } catch (error) {
+      console.error('Error creando usuario:', error);
+      Alert.alert('Error', 'Error de conexión al servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderUsuario = ({ item }: { item: Usuario }) => (
     <View style={styles.userCard}>
       <View style={styles.userAvatar}>
@@ -252,6 +310,233 @@ export default function UsuariosScreen() {
           {filteredUsuarios.length} usuario{filteredUsuarios.length !== 1 ? 's' : ''}
         </Text>
       </View>
+
+      {/* Botón Flotante para Crear */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setCreateModalVisible(true)}
+      >
+        <LinearGradient
+          colors={['#7c3aed', '#a78bfa']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={32} color="#fff" />
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Modal de Crear Usuario */}
+      <Modal
+        visible={createModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <LinearGradient
+            colors={['#7c3aed', '#a78bfa']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.createModalHeader}
+          >
+            <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.closeButton}>
+              <Ionicons name="close" size={32} color="#ffffff" />
+            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Ionicons name="person-add" size={40} color="#ffffff" />
+              <Text style={styles.createModalTitle}>Crear Nuevo Usuario</Text>
+              <Text style={styles.createModalSubtitle}>Completa todos los campos para registrar un usuario</Text>
+            </View>
+            <View style={{ width: 32 }} />
+          </LinearGradient>
+
+          <ScrollView style={styles.createModalForm} showsVerticalScrollIndicator={false}>
+            {/* Sección de datos personales */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionTitle}>📋 Información Personal</Text>
+              
+              {/* Nombre */}
+              <View style={styles.inputGroup}>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="person" size={16} color="#7c3aed" />
+                  <Text style={styles.inputLabel}>Nombre Completo</Text>
+                </View>
+                <View style={[styles.inputWrapper, createFormData.nombre ? styles.inputWrapperFilled : {}]}>
+                  <TextInput
+                    style={styles.createInput}
+                    placeholder="Ej: Juan Pérez"
+                    placeholderTextColor="#6b7280"
+                    value={createFormData.nombre}
+                    onChangeText={(text) => setCreateFormData({ ...createFormData, nombre: text })}
+                  />
+                  {createFormData.nombre && <Ionicons name="checkmark-circle" size={20} color="#10b981" />}
+                </View>
+              </View>
+
+              {/* Email */}
+              <View style={styles.inputGroup}>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="mail" size={16} color="#38bdf8" />
+                  <Text style={styles.inputLabel}>Correo Electrónico</Text>
+                </View>
+                <View style={[styles.inputWrapper, createFormData.email ? styles.inputWrapperFilled : {}]}>
+                  <TextInput
+                    style={styles.createInput}
+                    placeholder="usuario@ejemplo.com"
+                    placeholderTextColor="#6b7280"
+                    value={createFormData.email}
+                    onChangeText={(text) => setCreateFormData({ ...createFormData, email: text })}
+                    keyboardType="email-address"
+                  />
+                  {createFormData.email && <Ionicons name="checkmark-circle" size={20} color="#10b981" />}
+                </View>
+              </View>
+
+              {/* Contraseña */}
+              <View style={styles.inputGroup}>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="lock-closed" size={16} color="#f59e0b" />
+                  <Text style={styles.inputLabel}>Contraseña</Text>
+                </View>
+                <View style={[styles.inputWrapper, createFormData.password ? styles.inputWrapperFilled : {}]}>
+                  <TextInput
+                    style={styles.createInput}
+                    placeholder="Mínimo 6 caracteres"
+                    placeholderTextColor="#6b7280"
+                    value={createFormData.password}
+                    onChangeText={(text) => setCreateFormData({ ...createFormData, password: text })}
+                    secureTextEntry
+                  />
+                  {createFormData.password && <Ionicons name="checkmark-circle" size={20} color="#10b981" />}
+                </View>
+              </View>
+            </View>
+
+            {/* Sección de contacto */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionTitle}>📱 Información de Contacto</Text>
+              
+              {/* Teléfono */}
+              <View style={styles.inputGroup}>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="call" size={16} color="#10b981" />
+                  <Text style={styles.inputLabel}>Teléfono</Text>
+                  <Text style={styles.optionalTag}>Opcional</Text>
+                </View>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.createInput}
+                    placeholder="+34 123 456 789"
+                    placeholderTextColor="#6b7280"
+                    value={createFormData.telefono}
+                    onChangeText={(text) => setCreateFormData({ ...createFormData, telefono: text })}
+                  />
+                </View>
+              </View>
+
+              {/* Dirección */}
+              <View style={styles.inputGroup}>
+                <View style={styles.labelContainer}>
+                  <Ionicons name="location" size={16} color="#8b5cf6" />
+                  <Text style={styles.inputLabel}>Dirección</Text>
+                  <Text style={styles.optionalTag}>Opcional</Text>
+                </View>
+                <View style={[styles.inputWrapper, styles.multilineWrapper]}>
+                  <TextInput
+                    style={[styles.createInput, styles.createInputMultiline]}
+                    placeholder="Calle Principal 123, Apt 4B, Ciudad"
+                    placeholderTextColor="#6b7280"
+                    value={createFormData.direccion}
+                    onChangeText={(text) => setCreateFormData({ ...createFormData, direccion: text })}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Sección de rol */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionTitle}>🔐 Tipo de Acceso</Text>
+              <Text style={styles.roleDescription}>Selecciona qué tipo de usuario será creado</Text>
+              
+              <View style={styles.roleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.roleCard,
+                    createFormData.rol === 'cliente' && styles.roleCardSelected
+                  ]}
+                  onPress={() => setCreateFormData({ ...createFormData, rol: 'cliente' })}
+                >
+                  <LinearGradient
+                    colors={
+                      createFormData.rol === 'cliente'
+                        ? ['#3b82f6', '#2563eb']
+                        : ['#374151', '#1f2937']
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.roleCardGradient}
+                  >
+                    <Ionicons name="person-circle" size={32} color="#fff" />
+                    <Text style={styles.roleCardTitle}>Cliente</Text>
+                    <Text style={styles.roleCardDescription}>Acceso limitado a perfil y citas</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.roleCard,
+                    createFormData.rol === 'admin' && styles.roleCardSelected
+                  ]}
+                  onPress={() => setCreateFormData({ ...createFormData, rol: 'admin' })}
+                >
+                  <LinearGradient
+                    colors={
+                      createFormData.rol === 'admin'
+                        ? ['#ef4444', '#dc2626']
+                        : ['#374151', '#1f2937']
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.roleCardGradient}
+                  >
+                    <Ionicons name="shield-checkmark" size={32} color="#fff" />
+                    <Text style={styles.roleCardTitle}>Administrador</Text>
+                    <Text style={styles.roleCardDescription}>Acceso completo al sistema</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Botones de acción */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={handleCreateUser}
+              >
+                <LinearGradient
+                  colors={['#10b981', '#059669']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.createButtonGradient}
+                >
+                  <Ionicons name="checkmark-done" size={22} color="#fff" />
+                  <Text style={styles.createButtonText}>Crear Usuario</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelCreateButton}
+                onPress={() => setCreateModalVisible(false)}
+              >
+                <Text style={styles.cancelCreateButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Modal de edición */}
       <Modal
@@ -661,6 +946,240 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  button: {
+    borderRadius: 12,
+    marginTop: 16,
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
+  buttonGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  roleSelector: {
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  label: {
+    color: '#e5e7eb',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  roleOption: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#374151',
+    alignItems: 'center',
+  },
+  roleOptionSelected: {
+    backgroundColor: '#7c3aed',
+    borderColor: '#7c3aed',
+  },
+  roleOptionText: {
+    color: '#9ca3af',
+    fontWeight: '600',
+  },
+  roleOptionTextSelected: {
+    color: '#fff',
+  },
+  multilineInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  // Estilos mejorados para modal de crear usuario
+  createModalHeader: {
+    paddingTop: 50,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+  },
+  headerContent: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 16,
+  },
+  createModalTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  createModalSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  createModalForm: {
+    flex: 1,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  formSection: {
+    marginBottom: 28,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e5e7eb',
+  },
+  optionalTag: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#27272a',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#3f3f46',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    transition: 'all 0.3s ease',
+  },
+  inputWrapperFilled: {
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+  },
+  multilineWrapper: {
+    minHeight: 100,
+    paddingTop: 12,
+    paddingBottom: 12,
+    alignItems: 'flex-start',
+  },
+  createInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 15,
+    padding: 0,
+  },
+  createInputMultiline: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  roleDescription: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginBottom: 12,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  roleCard: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  roleCardSelected: {
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  roleCardGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  roleCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 8,
+  },
+  roleCardDescription: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.75)',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  actionButtons: {
+    gap: 12,
+    marginTop: 8,
+  },
+  createButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  createButtonGradient: {
+    flexDirection: 'row',
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelCreateButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: 'rgba(107, 114, 128, 0.2)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#4b5563',
+  },
+  cancelCreateButtonText: {
+    color: '#9ca3af',
     fontSize: 16,
     fontWeight: '600',
   },

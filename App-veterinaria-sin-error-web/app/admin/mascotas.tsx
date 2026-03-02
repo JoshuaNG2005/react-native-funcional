@@ -127,6 +127,42 @@ export default function MascotasAdminView() {
     }
   };
 
+  const handleDeleteMascota = async (mascotaId: number, nombre: string) => {
+    Alert.alert(
+      'Eliminar mascota',
+      `¿Seguro que quieres eliminar a ${nombre}? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${getApiUrl()}/api/v1/mascotas/admin/${mascotaId}`, {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              const data = await response.json();
+
+              if (data.success) {
+                setMascotas((prev) => prev.filter((mascota) => mascota.id !== mascotaId));
+                Alert.alert('✅ Éxito', 'Mascota eliminada correctamente');
+              } else {
+                Alert.alert('❌ Error', data.message || 'No se pudo eliminar la mascota');
+              }
+            } catch (error) {
+              console.error('Error al eliminar mascota:', error);
+              Alert.alert('❌ Error', 'Error al eliminar la mascota');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const getTipoIcon = (tipo: string) => {
     const tipoLower = tipo.toLowerCase();
     if (tipoLower.includes('perro')) return 'paw';
@@ -201,6 +237,14 @@ export default function MascotasAdminView() {
             Registrado: {new Date(item.fecha_creacion).toLocaleDateString('es-ES')}
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteMascota(item.id, item.nombre)}
+        >
+          <Ionicons name="trash" size={16} color="#fff" />
+          <Text style={styles.deleteButtonText}>Eliminar</Text>
+        </TouchableOpacity>
       </LinearGradient>
     </View>
   );
@@ -475,6 +519,22 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  deleteButton: {
+    marginTop: 12,
+    alignSelf: 'flex-end',
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   fab: {
     position: 'absolute',

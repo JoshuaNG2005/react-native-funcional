@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, To
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'expo-router';
 
 const styles = StyleSheet.create({
   centerContainer: {
@@ -114,6 +115,7 @@ export default function CitasScreen() {
     'Otro',
   ];
   const { token } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [citas, setCitas] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,10 +142,7 @@ export default function CitasScreen() {
       const response = await fetch(`${apiUrl}/api/v1/citas?t=${Date.now()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
         },
-        cache: 'no-store',
       });
       const data = await response.json();
       
@@ -277,6 +276,56 @@ export default function CitasScreen() {
     fetchCitas().then(() => setRefreshing(false));
   };
 
+  const completarCita = async (citaId) => {
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/citas/${citaId}/completar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('Éxito', 'Cita completada. Ahora puedes ver el tratamiento.');
+        await fetchCitas();
+        router.push('/(tabs)/tratamientos');
+      } else {
+        Alert.alert('Error', data.message || 'No se pudo completar la cita');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo completar la cita');
+    }
+  };
+
+  const cancelarCita = async (citaId) => {
+    Alert.alert('Cancelar Cita', '¿Estás seguro de que deseas cancelar esta cita?', [
+      { text: 'No', onPress: () => {} },
+      {
+        text: 'Sí, cancelar',
+        onPress: async () => {
+          try {
+            const response = await fetch(`${apiUrl}/api/v1/citas/${citaId}`, {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            const data = await response.json();
+            if (response.ok) {
+              Alert.alert('Éxito', 'Cita cancelada');
+              await fetchCitas();
+            } else {
+              Alert.alert('Error', data.message || 'No se pudo cancelar la cita');
+            }
+          } catch (error) {
+            Alert.alert('Error', 'No se pudo cancelar la cita');
+          }
+        }
+      }
+    ]);
+  };
+
   const getAvailableDates = () => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -396,6 +445,37 @@ export default function CitasScreen() {
             <Text style={{ color: '#34d399', fontSize: 18, fontWeight: 'bold' }}>
               ${Number(item.costo).toFixed(2)}
             </Text>
+          </View>
+        )}
+
+        {item?.estado === 'pendiente' && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+            <TouchableOpacity
+              style={{ flex: 1, borderRadius: 8, overflow: 'hidden' }}
+              onPress={() => completarCita(item.id)}
+            >
+              <LinearGradient
+                colors={['#34d399', '#10b981']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ paddingVertical: 10, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
+                  ✓ Completar
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ flex: 1, borderRadius: 8, overflow: 'hidden', backgroundColor: '#ef444433' }}
+              onPress={() => cancelarCita(item.id)}
+            >
+              <View style={{ paddingVertical: 10, alignItems: 'center' }}>
+                <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14 }}>
+                  ✕ Cancelar
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
         )}
       </View>

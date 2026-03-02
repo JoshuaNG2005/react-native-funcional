@@ -21,6 +21,29 @@ router.get('/admin/all', authenticateAdmin, async (req, res) => {
   }
 });
 
+// ADMIN: ELIMINAR CUALQUIER MASCOTA
+router.delete('/admin/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const mascotaId = req.params.id;
+
+    const mascota = await getQuery('SELECT * FROM mascotas WHERE id = ?', [mascotaId]);
+    if (!mascota) {
+      return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
+    }
+
+    await runQuery('DELETE FROM mascotas WHERE id = ?', [mascotaId]);
+
+    res.json({
+      success: true,
+      message: 'Mascota eliminada correctamente',
+      data: { id: Number(mascotaId) },
+    });
+  } catch (error) {
+    console.error('Error al eliminar mascota (admin):', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar mascota' });
+  }
+});
+
 // OBTENER TODAS LAS MASCOTAS DEL USUARIO
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -39,9 +62,12 @@ router.get('/', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { nombre, tipo, raza, edad, peso, color } = req.body;
+    const ownerId = req.user.rol === 'admin' && req.body.usuario_id
+      ? Number(req.body.usuario_id)
+      : req.user.id;
 
     console.log('POST /mascotas - Usuario:', req.user.id);
-    console.log('Datos recibidos:', { nombre, tipo, raza, edad, peso, color });
+    console.log('Datos recibidos:', { nombre, tipo, raza, edad, peso, color, ownerId });
 
     if (!nombre || !tipo) {
       return res.status(400).json({
@@ -50,17 +76,29 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await runQuery(
-      'INSERT INTO mascotas (nombre, tipo, raza, edad, peso, color, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [nombre, tipo, raza || null, edad || null, peso || null, color || null, req.user.id]
-    );
+    let result;
+    try {
+      result = await runQuery(
+        'INSERT INTO mascotas (nombre, tipo, raza, edad, peso, color, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [nombre, tipo, raza || null, edad || null, peso || null, color || null, ownerId]
+      );
+    } catch (dbError) {
+      if (dbError.code === 'ER_BAD_FIELD_ERROR' && dbError.message.includes('color')) {
+        result = await runQuery(
+          'INSERT INTO mascotas (nombre, tipo, raza, edad, peso, usuario_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [nombre, tipo, raza || null, edad || null, peso || null, ownerId]
+        );
+      } else {
+        throw dbError;
+      }
+    }
 
     console.log('Mascota creada exitosamente, ID:', result.insertId);
 
     res.status(201).json({
       success: true,
       message: 'Mascota creada exitosamente',
-      data: { id: result.insertId, nombre, tipo, raza, edad, peso, color, usuario_id: req.user.id },
+      data: { id: result.insertId, nombre, tipo, raza, edad, peso, color, usuario_id: ownerId },
     });
   } catch (error) {
     console.error('Error al crear mascota:', error);
@@ -100,22 +138,44 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Mascota no encontrada' });
     }
 
-    const updateQuery = `
-      UPDATE mascotas 
-      SET nombre = ?, tipo = ?, raza = ?, edad = ?, peso = ?, color = ?
-      WHERE id = ? AND usuario_id = ?
-    `;
+    try {
+      const updateQuery = `
+        UPDATE mascotas 
+        SET nombre = ?, tipo = ?, raza = ?, edad = ?, peso = ?, color = ?
+        WHERE id = ? AND usuario_id = ?
+      `;
 
-    await runQuery(updateQuery, [
-      nombre || mascota.nombre, 
-      tipo || mascota.tipo, 
-      raza || mascota.raza, 
-      edad || mascota.edad, 
-      peso || mascota.peso, 
-      color || mascota.color,
-      mascotaId, 
-      req.user.id
-    ]);
+      await runQuery(updateQuery, [
+        nombre || mascota.nombre,
+        tipo || mascota.tipo,
+        raza || mascota.raza,
+        edad || mascota.edad,
+        peso || mascota.peso,
+        color || mascota.color,
+        mascotaId,
+        req.user.id
+      ]);
+    } catch (dbError) {
+      if (dbError.code === 'ER_BAD_FIELD_ERROR' && dbError.message.includes('color')) {
+        const updateQuerySinColor = `
+          UPDATE mascotas 
+          SET nombre = ?, tipo = ?, raza = ?, edad = ?, peso = ?
+          WHERE id = ? AND usuario_id = ?
+        `;
+
+        await runQuery(updateQuerySinColor, [
+          nombre || mascota.nombre,
+          tipo || mascota.tipo,
+          raza || mascota.raza,
+          edad || mascota.edad,
+          peso || mascota.peso,
+          mascotaId,
+          req.user.id
+        ]);
+      } else {
+        throw dbError;
+      }
+    }
 
     res.json({
       success: true,

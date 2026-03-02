@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert,
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [nombre, setNombre] = useState(user?.nombre || '');
   const [email, setEmail] = useState(user?.email || '');
   const [telefono, setTelefono] = useState(user?.telefono || '');
@@ -110,6 +112,21 @@ export default function ProfileScreen() {
                   <Text style={styles.editButtonText}>Editar Perfil</Text>
                 </LinearGradient>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.editButtonWrapper}
+                onPress={() => setShowChangePassword(true)}
+              >
+                <LinearGradient
+                  colors={['#06b6d4', '#0891b2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.editButton}
+                >
+                  <Ionicons name="lock-closed" size={20} color="#fff" />
+                  <Text style={styles.editButtonText}>Cambiar Contraseña</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </>
           ) : (
             <>
@@ -203,6 +220,11 @@ export default function ProfileScreen() {
             </>
           )}
         </View>
+
+        <ChangePasswordModal 
+          visible={showChangePassword} 
+          onClose={() => setShowChangePassword(false)} 
+        />
     </ScrollView>
   );
 }

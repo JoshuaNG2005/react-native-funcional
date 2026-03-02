@@ -55,11 +55,6 @@ export default function LoginScreen() {
   }, []);
   const { login } = useAuth();
 
-  // Navegación a registro
-  const goToRegister = () => {
-    router.push('/register');
-  };
-
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -249,14 +244,6 @@ export default function LoginScreen() {
                     </LinearGradient>
                   </TouchableOpacity>
                 </Animated.View>
-                {/* Enlace dentro del recuadro negro, debajo del botón */}
-                <View style={{ width: '100%', alignItems: 'center', marginTop: 8 }}>
-                  <TouchableOpacity onPress={goToRegister} style={{ backgroundColor: '#18181b', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6 }}>
-                    <Text style={{ color: '#a1a1aa', fontSize: 16, textAlign: 'center' }}>
-                      ¿No tienes cuenta? <Text style={{ color: '#38bdf8', fontWeight: 'bold', textDecorationLine: 'underline' }}>Regístrate</Text>
-                    </Text>
-                  </TouchableOpacity>
-                </View>
                 {/* Número de emergencia */}
                 <TouchableOpacity style={styles.emergencyContainer} onPress={callEmergency}>
                   <Ionicons name="call" size={18} color="#ef4444" />

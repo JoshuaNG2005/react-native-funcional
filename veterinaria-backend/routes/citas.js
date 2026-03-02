@@ -371,4 +371,53 @@ router.get('/disponibilidad/:fecha', authenticateToken, async (req, res) => {
   }
 });
 
+// Completar una cita (Usuario cliente)
+router.post('/:id/completar', authenticateToken, async (req, res) => {
+  try {
+    const citaId = req.params.id;
+    const userId = req.user.id;
+
+    // Obtener la cita
+    const cita = await runQuery(
+      'SELECT * FROM citas WHERE id = ? AND usuario_id = ?',
+      [citaId, userId]
+    );
+
+    if (!cita || cita.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada o no tienes permisos',
+      });
+    }
+
+    // Actualizar estado a completada
+    await runQuery(
+      'UPDATE citas SET estado = ? WHERE id = ?',
+      ['completada', citaId]
+    );
+
+    // Marcar el tratamiento como completado
+    try {
+      await runQuery(
+        'UPDATE tratamientos SET estado = ? WHERE cita_id = ?',
+        ['completado', citaId]
+      );
+    } catch (err) {
+      console.log('Nota: No se pudo actualizar tratamiento');
+    }
+
+    res.json({
+      success: true,
+      message: 'Cita completada exitosamente',
+      data: { id: citaId, estado: 'completada' }
+    });
+  } catch (error) {
+    console.error('Error al completar cita:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al completar la cita',
+    });
+  }
+});
+
 module.exports = router;

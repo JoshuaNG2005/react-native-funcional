@@ -42,7 +42,7 @@ export default function AdminIndex() {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/welcome');
+    router.replace('/login');
   };
 
   const getViewTitle = () => {

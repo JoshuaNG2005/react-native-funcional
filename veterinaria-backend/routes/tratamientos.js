@@ -10,7 +10,7 @@ router.get('/', authenticateToken, async (req, res) => {
       `SELECT t.*, m.nombre as mascota_nombre, m.tipo as mascota_tipo
        FROM tratamientos t
        JOIN mascotas m ON t.mascota_id = m.id
-       WHERE m.usuario_id = $1
+       WHERE m.usuario_id = ?
        ORDER BY t.fecha_inicio DESC`,
       [req.user.id]
     );
@@ -35,12 +35,21 @@ router.get('/mascota/:mascotaId', authenticateToken, async (req, res) => {
     console.log('🔍 Buscando tratamientos - Mascota ID:', req.params.mascotaId, 'Usuario ID:', req.user.id);
     
     // Verificar que la mascota pertenezca al usuario
-    const mascota = await runQuery(
-      'SELECT * FROM mascotas WHERE id = $1 AND usuario_id = $2',
-      [req.params.mascotaId, req.user.id]
-    );
+    let mascota;
+    try {
+      mascota = await runQuery(
+        'SELECT * FROM mascotas WHERE id = ? AND usuario_id = ?',
+        [req.params.mascotaId, req.user.id]
+      );
+    } catch (err) {
+      console.log('Error verificando mascota:', err.message);
+      return res.status(404).json({
+        success: false,
+        message: 'Mascota no encontrada',
+      });
+    }
 
-    if (!mascota.rows || mascota.rows.length === 0) {
+    if (!mascota || mascota.length === 0) {
       console.log('❌ Mascota no encontrada o no pertenece al usuario');
       return res.status(404).json({
         success: false,
@@ -48,13 +57,13 @@ router.get('/mascota/:mascotaId', authenticateToken, async (req, res) => {
       });
     }
 
-    console.log('✅ Mascota verificada:', mascota.rows[0].nombre);
+    console.log('✅ Mascota verificada:', mascota[0].nombre);
 
     const tratamientos = await allQuery(
       `SELECT t.*, m.nombre as mascota_nombre
        FROM tratamientos t
        JOIN mascotas m ON t.mascota_id = m.id
-       WHERE t.mascota_id = $1
+       WHERE t.mascota_id = ?
        ORDER BY t.fecha_inicio DESC`,
       [req.params.mascotaId]
     );
@@ -112,8 +121,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const result = await runQuery(
       `INSERT INTO tratamientos 
        (mascota_id, cita_id, nombre, descripcion, medicamento, dosis, frecuencia, duracion, fecha_inicio, fecha_fin, notas, estado)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING *`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         mascota_id,
         cita_id || null,
@@ -130,10 +138,16 @@ router.post('/', authenticateToken, async (req, res) => {
       ]
     );
 
+    // Obtener el tratamiento creado
+    const newTratamiento = await runQuery(
+      'SELECT * FROM tratamientos WHERE id = LAST_INSERT_ID()',
+      []
+    );
+
     res.status(201).json({
       success: true,
       message: 'Tratamiento creado exitosamente',
-      data: result.rows[0],
+      data: newTratamiento[0] || result,
     });
   } catch (error) {
     console.error('Error al crear tratamiento:', error);
@@ -157,17 +171,46 @@ router.put('/:id', authenticateToken, async (req, res) => {
   const { estado, notas, fecha_fin } = req.body;
 
   try {
-    const result = await runQuery(
+    // Construir query dinámicamente solo con los campos proporcionados
+    let updateFields = [];
+    let updateValues = [];
+
+    if (estado !== undefined) {
+      updateFields.push('estado = ?');
+      updateValues.push(estado);
+    }
+    if (notas !== undefined) {
+      updateFields.push('notas = ?');
+      updateValues.push(notas);
+    }
+    if (fecha_fin !== undefined) {
+      updateFields.push('fecha_fin = ?');
+      updateValues.push(fecha_fin);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No hay campos para actualizar',
+      });
+    }
+
+    updateValues.push(req.params.id);
+
+    await runQuery(
       `UPDATE tratamientos
-       SET estado = COALESCE($1, estado),
-           notas = COALESCE($2, notas),
-           fecha_fin = COALESCE($3, fecha_fin)
-       WHERE id = $4
-       RETURNING *`,
-      [estado, notas, fecha_fin, req.params.id]
+       SET ${updateFields.join(', ')}
+       WHERE id = ?`,
+      updateValues
     );
 
-    if (!result.rows || result.rows.length === 0) {
+    // Obtener el tratamiento actualizado
+    const result = await runQuery(
+      'SELECT * FROM tratamientos WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (!result || result.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Tratamiento no encontrado',
@@ -177,7 +220,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       message: 'Tratamiento actualizado exitosamente',
-      data: result.rows[0],
+      data: result[0],
     });
   } catch (error) {
     console.error('Error al actualizar tratamiento:', error);
@@ -195,7 +238,7 @@ router.get('/activos', authenticateToken, async (req, res) => {
       `SELECT t.*, m.nombre as mascota_nombre, m.tipo as mascota_tipo
        FROM tratamientos t
        JOIN mascotas m ON t.mascota_id = m.id
-       WHERE m.usuario_id = $1 AND t.estado = 'activo'
+       WHERE m.usuario_id = ? AND t.estado = 'activo'
        ORDER BY t.fecha_inicio DESC`,
       [req.user.id]
     );
